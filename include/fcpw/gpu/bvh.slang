@@ -2,6 +2,7 @@ implementing fcpw;
 __include aggregate;
 __include geometry;
 __include bvh_node;
+__include cone_utils;
 
 public static const uint FCPW_BVH_MAX_DEPTH = 64;
 
@@ -668,6 +669,123 @@ public struct Bvh<N : IBvhNode, P : IPrimitive, S : ISilhouette> : IAggregate
                     }
                 }
             }
+        }
+
+        return !notFound;
+    }
+
+    // finds closest point on aggregate geometry from sphere center
+    public bool findMinCone(inout MinCone c, inout Interaction i,
+                            bool recordNormal = false)
+    {
+        TraversalStack traversalStack[FCPW_BVH_MAX_DEPTH];
+        float2 maxCosToChildNodes = float2(0.f, 0.f);
+        BoundingBox rootBox = nodes[0].getBoundingBox();
+        bool notFound = true;
+
+        float tmpDist = minAngleToAABB(c.o, c.d, rootBox);
+        if (tmpDist > c.cosHalfAngle)
+        {
+            traversalStack[0].node = 0;
+            traversalStack[0].distance = tmpDist;
+            int stackPtr = 0;
+
+            while (stackPtr >= 0)
+            {
+                // pop off the next node to work on
+                uint currentNodeIndex = traversalStack[stackPtr].node;
+                float currentDist = traversalStack[stackPtr].distance;
+                stackPtr--;
+
+                // if this node is further than the closest found primitive, continue
+                if (currentDist < c.cosHalfAngle)
+                {
+                    continue;
+                }
+
+                N node = nodes[currentNodeIndex];
+                if (node.isLeaf())
+                {
+                    // compute distance to primitives in leaf node
+                    uint nPrimitives = node.getNumPrimitives();
+                    for (uint p = 0; p < nPrimitives; p++)
+                    {
+                        Interaction tmpI;
+                        uint primitiveIndex = node.getPrimitiveOffset() + p;
+                        bool found = primitives[primitiveIndex].findAngularClosestPoint(c, tmpI);
+
+                        // keep the closest point only
+                        if (found)
+                        {
+                            notFound = false;
+                            c.cosHalfAngle = max(c.cosHalfAngle, tmpI.d);
+                            i = tmpI;
+                        }
+                    }
+                }
+                else
+                {
+                    // find distance to child nodes
+                    uint leftNodeIndex = currentNodeIndex + 1;
+                    BoundingBox leftBox = nodes[leftNodeIndex].getBoundingBox();
+                    maxCosToChildNodes[0] = minAngleToAABB(c.o, c.d, leftBox);
+                    bool overlapsLeft = (maxCosToChildNodes[0] > c.cosHalfAngle);
+                    
+                    uint rightNodeIndex = currentNodeIndex + node.getRightChildOffset();
+                    BoundingBox rightBox = nodes[rightNodeIndex].getBoundingBox();
+                    maxCosToChildNodes[1] = minAngleToAABB(c.o, c.d, rightBox);
+                    bool overlapsRight = (maxCosToChildNodes[1] > c.cosHalfAngle);
+
+                    // which nodes do we overlap?
+                    if (overlapsLeft && overlapsRight)
+                    {
+                        // assume that the left child is closer
+                        uint closer = leftNodeIndex;
+                        uint other = rightNodeIndex;
+
+                        // ... if the right child was actually closer, swap the relavent values
+                        if (maxCosToChildNodes[1] > maxCosToChildNodes[0])
+                        {
+                            uint tmpNodeIndex = closer;
+                            closer = other;
+                            other = tmpNodeIndex;
+
+                            float tmpDist = maxCosToChildNodes[0];
+                            maxCosToChildNodes[0] = maxCosToChildNodes[1];
+                            maxCosToChildNodes[1] = tmpDist;
+                        }
+
+                        // it's possible that the nearest primitive is still in the other node,
+                        // but we'll check the farther-away node later.
+
+                        // push the further node first, then the closer node
+                        stackPtr++;
+                        traversalStack[stackPtr].node = other;
+                        traversalStack[stackPtr].distance = maxCosToChildNodes[1];
+
+                        stackPtr++;
+                        traversalStack[stackPtr].node = closer;
+                        traversalStack[stackPtr].distance = maxCosToChildNodes[0];
+                    }
+                    else if (overlapsLeft)
+                    {
+                        stackPtr++;
+                        traversalStack[stackPtr].node = leftNodeIndex;
+                        traversalStack[stackPtr].distance = maxCosToChildNodes[0];
+                    }
+                    else if (overlapsRight)
+                    {
+                        stackPtr++;
+                        traversalStack[stackPtr].node = rightNodeIndex;
+                        traversalStack[stackPtr].distance = maxCosToChildNodes[1];
+                    }
+                }
+            }
+        }
+
+        if (!notFound && recordNormal)
+        {
+            i.n = primitives[i.index].getNormal();
         }
 
         return !notFound;

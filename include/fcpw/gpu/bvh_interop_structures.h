@@ -11,6 +11,10 @@
 
 namespace fcpw {
 
+struct float4 {
+    float x, y, z, w;
+};
+
 struct float3 {
     float x, y, z;
 };
@@ -786,6 +790,25 @@ struct GPUBoundingSphere {
     float r2; // sphere squared radius
 };
 
+struct GPUMinCone {
+    GPUMinCone() {
+        o = float3{0.0f, 0.0f, 0.0f};
+        d = float3{0.0f, 0.0f, 0.0f};
+        cosHalfAngle = 0.0f;
+        planeNear = float4{0.0f, 0.0f, 0.0f, 0.0f};
+        planeFar = float4{0.0f, 0.0f, 0.0f, 0.0f};
+    }
+    GPUMinCone(const float3& o_, const float3& d_, float cosHalfAngle_,
+                 const float4& planeNear_, const float4& planeFar_):
+        o(o_), d(d_), cosHalfAngle(cosHalfAngle_), planeNear(planeNear_), planeFar(planeFar_) {}
+
+    float3 o;    // cone origin
+    float3 d;    // cone central direction
+    float cosHalfAngle; // cosine of half angle
+    float4 planeNear; // near plane
+    float4 planeFar;  // far plane
+};
+
 struct GPUInteraction {
     GPUInteraction() {
         p = float3{0.0f, 0.0f, 0.0f};
@@ -972,6 +995,39 @@ public:
         cursor.getPath("nQueries").setData(interactionsBuffer.nInteractions);
 
         return 7;
+    }
+
+    void read(ComPtr<IDevice>& device, std::vector<GPUInteraction>& interactionsData) const {
+        interactionsBuffer.read(device, interactionsData);
+    }
+};
+
+class GPUQueryMinConeBuffers {
+public:
+    GPUBuffer minCones = {};
+    GPUInteractionsBuffer interactionsBuffer;
+    float recordNormals = false;
+
+    void allocate(ComPtr<IDevice>& device,
+                  std::vector<GPUMinCone>& minConesData) {
+        Slang::Result createBufferResult = minCones.create<GPUMinCone>(
+            device, false, minConesData.data(), minConesData.size());
+        if (createBufferResult != SLANG_OK) {
+            std::cout << "failed to create minCones buffer" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        interactionsBuffer.nInteractions = (uint32_t)minConesData.size();
+        interactionsBuffer.allocate(device);
+    }
+
+    int setResources(ShaderCursor& cursor) const {
+        cursor.getPath("minCones").setResource(minCones.view);
+        cursor.getPath("interactions").setResource(interactionsBuffer.interactions.view);
+        cursor.getPath("recordNormals").setData(recordNormals);
+        cursor.getPath("nQueries").setData(interactionsBuffer.nInteractions);
+
+        return 5;
     }
 
     void read(ComPtr<IDevice>& device, std::vector<GPUInteraction>& interactionsData) const {

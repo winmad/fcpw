@@ -75,6 +75,16 @@ public:
                                      std::vector<GPUInteraction>& interactions,
                                      float squaredMinRadius=0.0f, float precision=1e-3f);
 
+    // find minimum cones
+    void findMinCones(Eigen::MatrixXf& queryPoints,
+                      Eigen::MatrixXf& queryDirs,
+                      Eigen::VectorXf& maxCosHalfAngle,
+                      std::vector<GPUInteraction>& interactions,
+                      bool recordNormals=false);
+    void findMinCones(std::vector<GPUMinCone>& minCones,
+                      std::vector<GPUInteraction>& interactions,
+                      bool recordNormals=false);
+
 private:
     // members
     GPUContext gpuContext;
@@ -87,6 +97,7 @@ private:
     Shader sphereIntersectionShader;
     Shader closestPointShader;
     Shader closestSilhouettePointShader;
+    Shader minConeShader;
     uint32_t nThreadsPerGroup;
     bool printLogs;
 };

@@ -331,4 +331,68 @@ inline void GPUScene<DIM>::findClosestSilhouettePoints(std::vector<GPUBoundingSp
                                                                        interactions, nThreadGroups, printLogs);
 }
 
+template<size_t DIM>
+inline void GPUScene<DIM>::findMinCones(Eigen::MatrixXf& queryPoints,
+                                        Eigen::MatrixXf& queryDirs,
+                                        Eigen::VectorXf& maxCosHalfAngle,
+                                        std::vector<GPUInteraction>& interactions,
+                                        bool recordNormals)
+{
+    int nQueries = (int)queryPoints.rows();
+    std::vector<GPUMinCone> minCones(nQueries);
+
+    auto callback = [&](int start, int end) {
+        for (int i = start; i < end; i++) {
+            GPUMinCone& minCone = minCones[i];
+            minCone.o = float3{queryPoints(i, 0),
+                               queryPoints(i, 1),
+                               DIM == 2 ? 0.0f : queryPoints(i, 2)};
+            minCone.d = float3{queryDirs(i, 0),
+                               queryDirs(i, 1),
+                               DIM == 2 ? 0.0f : queryDirs(i, 2)};
+            minCone.cosHalfAngle = maxCosHalfAngle(i);
+        }
+    };
+
+    int nThreads = std::thread::hardware_concurrency();
+    int nQueriesPerThread = nQueries/nThreads;
+    std::vector<std::thread> threads;
+
+    for (int i = 0; i < nThreads; i++) {
+        int start = i*nQueriesPerThread;
+        int end = (i == nThreads - 1) ? nQueries : (i + 1)*nQueriesPerThread;
+        threads.emplace_back(callback, start, end);
+    }
+
+    for (auto& t: threads) {
+        t.join();
+    }
+
+    findMinCones(minCones, interactions, recordNormals);
+}
+
+template<size_t DIM>
+inline void GPUScene<DIM>::findMinCones(std::vector<GPUMinCone>& minCones,
+                                        std::vector<GPUInteraction>& interactions,
+                                        bool recordNormals)
+{
+    // initialize shader
+    if (minConeShader.reflection == nullptr) {
+        loadModuleLibrary(gpuContext, fcpwModule, minConeShader);
+        loadShader(gpuContext, traversalShaderModule, "coneQuery", minConeShader);
+    }
+
+    // create GPU buffers
+    GPUQueryMinConeBuffers gpuQueryMinConeBuffers;
+    gpuQueryMinConeBuffers.allocate(gpuContext.device, minCones);
+    gpuQueryMinConeBuffers.recordNormals = recordNormals;
+
+    // run closest point shader
+    int nQueries = (int)minCones.size();
+    int nThreadGroups = countThreadGroups(nQueries, nThreadsPerGroup, printLogs);
+    runTraversal<GPUBvhBuffers, GPUQueryMinConeBuffers>(gpuContext, minConeShader,
+                                                        gpuBvhBuffers, gpuQueryMinConeBuffers,
+                                                        interactions, nThreadGroups, printLogs);
+}
+
 } // namespace fcpw

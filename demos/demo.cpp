@@ -271,7 +271,7 @@ void run(bool useGpu)
         loadFcpwScene(positions, indices, false, scene); // NOTE: must build non-vectorized CPU BVH
 
         // transfer scene to GPU
-        bool printStats = false;
+        bool printStats = true;
         GPUScene<3> gpuScene(currentDirectory.string(), printStats);
         gpuScene.transferToGPU(scene);
 

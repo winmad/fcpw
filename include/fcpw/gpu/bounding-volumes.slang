@@ -2,6 +2,24 @@ implementing fcpw;
 __include ray;
 __include math_constants;
 
+public struct MinCone
+{
+    public float3 o;
+    public float3 d;
+    public float cosHalfAngle;
+    public float4 planeNear;
+    public float4 planeFar;
+
+    public __init(float3 o_, float3 d_, float cosHalfAngle_, float4 planeNear_, float4 planeFar_)
+    {
+        o = o_;
+        d = d_;
+        cosHalfAngle = cosHalfAngle_;
+        planeNear = planeNear_;
+        planeFar = planeFar_;
+    }
+}
+
 public struct BoundingSphere
 {
     public float3 c; // sphere center

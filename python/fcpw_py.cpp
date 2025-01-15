@@ -456,6 +456,9 @@ NB_MODULE(py, m) {
     using GPUInteractionList = std::vector<fcpw::GPUInteraction>;
     nb::bind_vector<GPUInteractionList>(m, "gpu_interaction_list");
 
+    using GPUMinConeList = std::vector<fcpw::GPUMinCone>;
+    nb::bind_vector<GPUMinConeList>(m, "gpu_min_cone_list");
+
     nb::class_<fcpw::GPUScene<2>>(m, "gpu_scene_2D")
         .def(nb::init<const std::string&, bool>(),
             "fcpw_directory_path"_a, "print_logs"_a=false)
@@ -502,21 +505,21 @@ NB_MODULE(py, m) {
 
     nb::class_<fcpw::GPUScene<3>>(m, "gpu_scene_3D")
         .def(nb::init<const std::string&, bool>(),
-            "fcpw_directory_path"_a, "print_logs"_a=false)
+            "fcpw_directory_path"_a, "print_logs"_a = false)
         .def("transfer_to_gpu", &fcpw::GPUScene<3>::transferToGPU,
             "Transfers a binary (non-vectorized) BVH aggregate, constructed on the CPU using the 'build' function in the Scene class, to the GPU.\nNOTE: Currently only supports scenes with a single object, i.e., no CSG trees, instanced or transformed aggregates, or nested hierarchies of aggregates.\nWhen using 'build', set 'vectorize' to false.",
             "scene"_a)
         .def("refit", &fcpw::GPUScene<3>::refit,
             "Refits the BVH on the GPU after updating the geometry, either via calls to update_object_vertex in the Scene class, or directly in GPU code\nin the user's slang shaders (set updateGeometry to false if the geometry is updated directly on the GPU).\nNOTE: Before calling this function, the BVH must already have been transferred to the GPU.",
-            "scene"_a, "update_geometry"_a=true)
+            "scene"_a, "update_geometry"_a = true)
         .def("intersect", nb::overload_cast<Eigen::MatrixXf&, Eigen::MatrixXf&, Eigen::VectorXf&, GPUInteractionList&, bool>(
             &fcpw::GPUScene<3>::intersect),
             "Intersects the scene with the given rays, returning the closest interaction if it exists.",
-            "ray_origins"_a, "ray_directions"_a, "ray_distance_bounds"_a, "interactions"_a, "check_for_occlusion"_a=false)
+            "ray_origins"_a, "ray_directions"_a, "ray_distance_bounds"_a, "interactions"_a, "check_for_occlusion"_a = false)
         .def("intersect", nb::overload_cast<GPURayList&, GPUInteractionList&, bool>(
             &fcpw::GPUScene<3>::intersect),
             "Intersects the scene with the given rays, returning the closest interaction if it exists.",
-            "rays"_a, "interactions"_a, "check_for_occlusion"_a=false)
+            "rays"_a, "interactions"_a, "check_for_occlusion"_a = false)
         .def("intersect", nb::overload_cast<Eigen::MatrixXf&, Eigen::VectorXf&, Eigen::MatrixXf&, GPUInteractionList&>(
             &fcpw::GPUScene<3>::intersect),
             "Intersects the scene with the given spheres, randomly selecting one geometric primitive contained inside each sphere and sampling\na random point on that primitive (written to interaction.p) using the random numbers rand_nums[3].\nThe selection pdf value is written to interaction.d along with the primitive index.",
@@ -528,20 +531,28 @@ NB_MODULE(py, m) {
         .def("find_closest_points", nb::overload_cast<Eigen::MatrixXf&, Eigen::VectorXf&, GPUInteractionList&, bool>(
             &fcpw::GPUScene<3>::findClosestPoints),
             "Finds the closest points in the scene to the given query points, encoded as bounding spheres.\nThe radius of each bounding sphere specifies the conservative radius guess around the query point inside which the search is performed.",
-            "query_points"_a, "squared_max_radii"_a, "interactions"_a, "record_normals"_a=false)
+            "query_points"_a, "squared_max_radii"_a, "interactions"_a, "record_normals"_a = false)
         .def("find_closest_points", nb::overload_cast<GPUBoundingSphereList&, GPUInteractionList&, bool>(
             &fcpw::GPUScene<3>::findClosestPoints),
             "Finds the closest points in the scene to the given query points, encoded as bounding spheres.\nThe radius of each bounding sphere specifies the conservative radius guess around the query point inside which the search is performed.",
-            "bounding_spheres"_a, "interactions"_a, "record_normals"_a=false)
+            "bounding_spheres"_a, "interactions"_a, "record_normals"_a = false)
         .def("find_closest_silhouette_points", nb::overload_cast<Eigen::MatrixXf&, Eigen::VectorXf&, Eigen::VectorXi&, GPUInteractionList&, float, float>(
             &fcpw::GPUScene<3>::findClosestSilhouettePoints),
             "Finds the closest points on the visibility silhouette in the scene to the given query points, encoded as bounding spheres.\nOptionally specify a minimum radius to stop the closest silhouette search, as well as a precision parameter to help classify silhouettes.",
             "query_points"_a, "squared_max_radii"_a, "flip_normal_orientation"_a,
-            "interactions"_a, "squared_min_radius"_a=0.0f, "precision"_a=1e-3f)
+            "interactions"_a, "squared_min_radius"_a = 0.0f, "precision"_a = 1e-3f)
         .def("find_closest_silhouette_points", nb::overload_cast<GPUBoundingSphereList&, UInt32List&, GPUInteractionList&, float, float>(
             &fcpw::GPUScene<3>::findClosestSilhouettePoints),
             "Finds the closest points on the visibility silhouette in the scene to the given query points, encoded as bounding spheres.\nOptionally specify a minimum radius to stop the closest silhouette search, as well as a precision parameter to help classify silhouettes.",
             "bounding_spheres"_a, "flip_normal_orientation"_a, "interactions"_a,
-            "squared_min_radius"_a=0.0f, "precision"_a=1e-3f);
+            "squared_min_radius"_a = 0.0f, "precision"_a = 1e-3f)
+        .def("find_min_cones", nb::overload_cast<Eigen::MatrixXf&, Eigen::MatrixXf&, Eigen::VectorXf&, GPUInteractionList&, bool>(
+            &fcpw::GPUScene<3>::findMinCones),
+            "TBD",
+            "query_points"_a, "query_dirs"_a, "max_cos_half_angle"_a, "interactions"_a, "record_normals"_a = false)
+        .def("find_min_cones", nb::overload_cast<GPUMinConeList&, GPUInteractionList&, bool>(
+            &fcpw::GPUScene<3>::findMinCones),
+            "TBD",
+            "min_cones"_a, "interactions"_a, "record_normals"_a = false);
 #endif
 }

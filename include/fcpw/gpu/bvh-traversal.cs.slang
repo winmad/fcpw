@@ -129,3 +129,27 @@ void closestSilhouettePoint(uint3 threadId: SV_DispatchThreadID,
     }
 #endif
 }
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void coneQuery(uint3 threadId: SV_DispatchThreadID,
+                  uniform StructuredBuffer<MinCone> minCones,
+                  uniform RWStructuredBuffer<Interaction> interactions,
+                  uniform bool recordNormals,
+                  uniform uint nQueries)
+{
+    uint index = threadId.x;
+    if (index >= nQueries)
+    {
+        return;
+    }
+
+    MinCone c = minCones[index];
+    c.d = normalize(c.d);
+    Interaction i;
+    bool found = gBvh.findMinCone(c, i, recordNormals);
+    if (found)
+    {
+        interactions[index] = i;
+    }
+}

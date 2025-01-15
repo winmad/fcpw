@@ -3,6 +3,7 @@ __include ray;
 __include math_constants;
 __include interaction;
 __include bounding_volumes;
+__include cone_utils;
 
 public interface IPrimitive
 {
@@ -32,6 +33,8 @@ public interface IPrimitive
 
     // returns the index of the primitive
     uint getIndex();
+
+    bool findAngularClosestPoint(MinCone c, inout Interaction i);
 };
 
 public bool intersectLineSegment(float3 pa, float3 pb,
@@ -196,6 +199,12 @@ public struct LineSegment : IPrimitive
     public uint getIndex()
     {
         return index;
+    }
+
+    public bool findAngularClosestPoint(MinCone c, inout Interaction i)
+    {
+        // no implementation for 2D line segments
+        return false;
     }
 };
 
@@ -427,6 +436,26 @@ public struct Triangle : IPrimitive
     public uint getIndex()
     {
         return index;
+    }
+
+    public bool findAngularClosestPoint(MinCone c, inout Interaction i)
+    {
+        bool flag = false;
+        float3 p[4] = { pa, pb, pc, pa };
+        for (uint k = 0; k < 3; k++)
+        {
+            float2 res = minAngleToSegment(c.o, c.d, p[k], p[k + 1]);
+            if (res.x > c.cosHalfAngle)
+            {
+                c.cosHalfAngle = res.x;
+                i.p = (1.f - res.y) * p[k] + res.y * p[k + 1];
+                i.uv = float2(res.y, k); // TODO: fix
+                i.d = res.x;
+                i.index = index;
+                flag = true;
+            }
+        }
+        return flag;
     }
 };
 
