@@ -74,7 +74,7 @@ def perform_gpu_min_cone_queries(gpu_scene, query_points, query_dirs):
 
     # extract closest points
     closest_points = np.array([np.array([i.p.x, i.p.y, i.p.z], dtype=np.float32, order='C') for i in interactions])
-    print(closest_points)
+    # print(closest_points)
 
     return closest_points
 
@@ -139,7 +139,7 @@ def main():
 
         # transfer scene to GPU
         fcpw_directory_path = str(Path.cwd().parent)
-        print_stats = False
+        print_stats = True
         gpu_scene = fcpw.gpu_scene_3D(fcpw_directory_path, print_stats)
         gpu_scene.transfer_to_gpu(scene)
 
