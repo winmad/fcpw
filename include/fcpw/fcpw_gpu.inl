@@ -338,6 +338,7 @@ inline void GPUScene<DIM>::findMinCones(Eigen::MatrixXf& queryPoints,
                                         Eigen::MatrixXf& planeNear,
                                         Eigen::MatrixXf& planeFar,
                                         std::vector<GPUInteraction>& interactions,
+                                        bool bruteForce,
                                         bool recordNormals)
 {
     int nQueries = (int)queryPoints.rows();
@@ -378,7 +379,11 @@ inline void GPUScene<DIM>::findMinCones(Eigen::MatrixXf& queryPoints,
         t.join();
     }
 
-    findMinCones(minCones, interactions, recordNormals);
+    if (bruteForce) {
+        findMinConesBruteForce(minCones, interactions, recordNormals);
+    } else {
+        findMinCones(minCones, interactions, recordNormals);
+    }
 }
 
 template<size_t DIM>
@@ -401,6 +406,30 @@ inline void GPUScene<DIM>::findMinCones(std::vector<GPUMinCone>& minCones,
     int nQueries = (int)minCones.size();
     int nThreadGroups = countThreadGroups(nQueries, nThreadsPerGroup, printLogs);
     runTraversal<GPUBvhBuffers, GPUQueryMinConeBuffers>(gpuContext, minConeShader,
+                                                        gpuBvhBuffers, gpuQueryMinConeBuffers,
+                                                        interactions, nThreadGroups, printLogs);
+}
+
+template<size_t DIM>
+inline void GPUScene<DIM>::findMinConesBruteForce(std::vector<GPUMinCone>& minCones,
+                                                  std::vector<GPUInteraction>& interactions,
+                                                  bool recordNormals)
+{
+    // initialize shader
+    if (minConeBruteForceShader.reflection == nullptr) {
+        loadModuleLibrary(gpuContext, fcpwModule, minConeBruteForceShader);
+        loadShader(gpuContext, traversalShaderModule, "coneQueryBruteForce", minConeBruteForceShader);
+    }
+
+    // create GPU buffers
+    GPUQueryMinConeBuffers gpuQueryMinConeBuffers;
+    gpuQueryMinConeBuffers.allocate(gpuContext.device, minCones);
+    gpuQueryMinConeBuffers.recordNormals = recordNormals;
+
+    // run closest point shader
+    int nQueries = (int)minCones.size();
+    int nThreadGroups = countThreadGroups(nQueries, nThreadsPerGroup, printLogs);
+    runTraversal<GPUBvhBuffers, GPUQueryMinConeBuffers>(gpuContext, minConeBruteForceShader,
                                                         gpuBvhBuffers, gpuQueryMinConeBuffers,
                                                         interactions, nThreadGroups, printLogs);
 }

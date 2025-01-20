@@ -546,10 +546,10 @@ NB_MODULE(py, m) {
             "Finds the closest points on the visibility silhouette in the scene to the given query points, encoded as bounding spheres.\nOptionally specify a minimum radius to stop the closest silhouette search, as well as a precision parameter to help classify silhouettes.",
             "bounding_spheres"_a, "flip_normal_orientation"_a, "interactions"_a,
             "squared_min_radius"_a = 0.0f, "precision"_a = 1e-3f)
-        .def("find_min_cones", nb::overload_cast<Eigen::MatrixXf&, Eigen::MatrixXf&, Eigen::VectorXf&, Eigen::MatrixXf&, Eigen::MatrixXf&, GPUInteractionList&, bool>(
+        .def("find_min_cones", nb::overload_cast<Eigen::MatrixXf&, Eigen::MatrixXf&, Eigen::VectorXf&, Eigen::MatrixXf&, Eigen::MatrixXf&, GPUInteractionList&, bool, bool>(
             &fcpw::GPUScene<3>::findMinCones),
             "TBD",
-            "query_points"_a, "query_dirs"_a, "max_cos_half_angle"_a, "plane_near"_a, "plane_far"_a, "interactions"_a, "record_normals"_a = false)
+            "query_points"_a, "query_dirs"_a, "max_cos_half_angle"_a, "plane_near"_a, "plane_far"_a, "interactions"_a, "brute_force"_a = false, "record_normals"_a = false)
         .def("find_min_cones", nb::overload_cast<GPUMinConeList&, GPUInteractionList&, bool>(
             &fcpw::GPUScene<3>::findMinCones),
             "TBD",

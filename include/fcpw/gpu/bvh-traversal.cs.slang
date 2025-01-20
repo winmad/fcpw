@@ -153,3 +153,27 @@ void coneQuery(uint3 threadId: SV_DispatchThreadID,
         interactions[index] = i;
     }
 }
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void coneQueryBruteForce(uint3 threadId: SV_DispatchThreadID,
+               uniform StructuredBuffer<MinCone> minCones,
+               uniform RWStructuredBuffer<Interaction> interactions,
+               uniform bool recordNormals,
+               uniform uint nQueries)
+{
+    uint index = threadId.x;
+    if (index >= nQueries)
+    {
+        return;
+    }
+
+    MinCone c = minCones[index];
+    c.d = normalize(c.d);
+    Interaction i;
+    bool found = gBvh.findMinConeBruteForce(c, i, recordNormals);
+    if (found)
+    {
+        interactions[index] = i;
+    }
+}

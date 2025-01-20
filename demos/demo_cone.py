@@ -66,11 +66,11 @@ def load_fcpw_scene(positions, indices, build_vectorized_cpu_bvh):
 
 #     return closest_points
 
-def perform_gpu_min_cone_queries(gpu_scene, query_data):
+def perform_gpu_min_cone_queries(gpu_scene, query_data, brute_force=False):
     # perform cpqs on GPU
     
     interactions = fcpw.gpu_interaction_list()
-    gpu_scene.find_min_cones(query_data["origin"], query_data["dirs"], query_data["max_cos_half_angle"], query_data["plane_near"], query_data["plane_far"], interactions)
+    gpu_scene.find_min_cones(query_data["origin"], query_data["dirs"], query_data["max_cos_half_angle"], query_data["plane_near"], query_data["plane_far"], interactions, brute_force)
 
     # extract closest points
     closest_points = np.array([np.array([i.p.x, i.p.y, i.p.z], dtype=np.float32, order='C') for i in interactions])
@@ -90,16 +90,23 @@ def gui_callback(scene, query_data, use_gpu):
     # perform closest point queries
     closest_points = None
     if use_gpu:
-        closest_points = perform_gpu_min_cone_queries(scene, query_data)
+        closest_points = perform_gpu_min_cone_queries(scene, query_data, False)
+        closest_points_ref = perform_gpu_min_cone_queries(scene, query_data, True)
     else:
         pass
         # closest_points = perform_closest_point_queries(scene, query_points)
 
+    diff = closest_points - closest_points_ref
+    diff = np.linalg.norm(diff, axis=1)
+    acc = np.sum(diff < 1e-6) / len(diff)
+    print(acc)
+
     # plot results
     # query_dir_end_points = query_points + query_dirs * 1.0
     ps.register_point_cloud("cone origin", query_points)
-    ps.register_point_cloud("cone hit", p_hit)
+    # ps.register_point_cloud("cone hit", p_hit)
     ps.register_point_cloud("closest points", closest_points)
+    ps.register_point_cloud("closest points ref", closest_points_ref)
     edge_positions = np.concatenate([query_points, p_hit, closest_points], axis=0)
     edge_indices_1 = np.array([[i, i + len(query_points)] for i in range(len(query_points))])
     edge_indices_2 = np.array([[i, i + 2 * len(query_points)] for i in range(len(query_points))])
@@ -107,6 +114,11 @@ def gui_callback(scene, query_data, use_gpu):
     network2 = ps.register_curve_network("closest silhouettes", edge_positions, edge_indices_2)
     network1.set_radius(0.003, relative=False)
     network2.set_radius(0.005, relative=False)
+
+    ref_edge_positions = np.concatenate([query_points, closest_points_ref], axis=0)
+    edge_indices_3 = np.array([[i, i + len(query_points)] for i in range(len(query_points))])
+    network3 = ps.register_curve_network("closest silhouettes ref", ref_edge_positions, edge_indices_3)
+    network3.set_radius(0.005, relative=False)
 
 def visualize(scene, positions, indices, query_data, use_gpu):
     # initialize polyscope
@@ -122,6 +134,7 @@ def visualize(scene, positions, indices, query_data, use_gpu):
     ps.show()
 
 def gen_cone_queries(gpu_scene, positions, num_queries):
+    np.random.seed(120)
     box_min = np.min(positions, axis=0)
     box_max = np.max(positions, axis=0)
     box_center = (box_min + box_max) * 0.5
@@ -150,6 +163,13 @@ def gen_cone_queries(gpu_scene, positions, num_queries):
         plane_near.append([query_dirs[i][0], query_dirs[i][1], query_dirs[i][2], -np.dot(query_dirs[i], query_points[i])])
         if interactions[i].index < 100000000:
             p_hit.append([interactions[i].p.x, interactions[i].p.y, interactions[i].p.z])
+
+            orientation = interactions[i].n.x * query_dirs[i][0] + interactions[i].n.y * query_dirs[i][1] + interactions[i].n.z * query_dirs[i][2]
+            if orientation > 0.0:
+                interactions[i].n.x *= -1.0
+                interactions[i].n.y *= -1.0
+                interactions[i].n.z *= -1.0
+
             plane_d = -(interactions[i].n.x * interactions[i].p.x + interactions[i].n.y * interactions[i].p.y + interactions[i].n.z * interactions[i].p.z)
             plane_far.append([interactions[i].n.x, interactions[i].n.y, interactions[i].n.z, plane_d])
             # print("hit")

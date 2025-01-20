@@ -82,10 +82,14 @@ public:
                       Eigen::MatrixXf& planeNear,
                       Eigen::MatrixXf& planeFar,
                       std::vector<GPUInteraction>& interactions,
+                      bool bruteForce=false,
                       bool recordNormals=false);
     void findMinCones(std::vector<GPUMinCone>& minCones,
                       std::vector<GPUInteraction>& interactions,
                       bool recordNormals=false);
+    void findMinConesBruteForce(std::vector<GPUMinCone>& minCones,
+                                std::vector<GPUInteraction>& interactions,
+                                bool recordNormals=false);
 
 private:
     // members
@@ -100,6 +104,7 @@ private:
     Shader closestPointShader;
     Shader closestSilhouettePointShader;
     Shader minConeShader;
+    Shader minConeBruteForceShader;
     uint32_t nThreadsPerGroup;
     bool printLogs;
 };

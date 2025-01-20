@@ -444,10 +444,9 @@ public struct Triangle : IPrimitive
         float3 p[4] = { pa, pb, pc, pa };
         for (uint k = 0; k < 3; k++)
         {
-            bool isVisible = (dot(float4(p[k], 1.f), c.planeNear) > -1e-6f 
-                            || dot(float4(p[k + 1], 1.f), c.planeNear) > -1e-6f
-                            || dot(float4(p[k], 1.f), c.planeFar) > -1e-6f
-                            || dot(float4(p[k + 1], 1.f), c.planeFar) > -1e-6f);
+            bool p0IsVisible = ((dot(float4(p[k], 1.f), c.planeNear) > -1e-6f && dot(float4(p[k], 1.f), c.planeFar) > -1e-6f));
+            bool p1IsVisible = ((dot(float4(p[k + 1], 1.f), c.planeNear) > -1e-6f && dot(float4(p[k + 1], 1.f), c.planeFar) > -1e-6f));
+            bool isVisible = (p0IsVisible || p1IsVisible);
 
             if (isVisible)
             {
