@@ -335,6 +335,8 @@ template<size_t DIM>
 inline void GPUScene<DIM>::findMinCones(Eigen::MatrixXf& queryPoints,
                                         Eigen::MatrixXf& queryDirs,
                                         Eigen::VectorXf& maxCosHalfAngle,
+                                        Eigen::MatrixXf& planeNear,
+                                        Eigen::MatrixXf& planeFar,
                                         std::vector<GPUInteraction>& interactions,
                                         bool recordNormals)
 {
@@ -351,6 +353,14 @@ inline void GPUScene<DIM>::findMinCones(Eigen::MatrixXf& queryPoints,
                                queryDirs(i, 1),
                                DIM == 2 ? 0.0f : queryDirs(i, 2)};
             minCone.cosHalfAngle = maxCosHalfAngle(i);
+            minCone.planeNear = float4{planeNear(i, 0),
+                                       planeNear(i, 1),
+                                       planeNear(i, 2),
+                                       planeNear(i, 3)};
+            minCone.planeFar = float4{planeFar(i, 0),
+                                      planeFar(i, 1),
+                                      planeFar(i, 2),
+                                      planeFar(i, 3)};
         }
     };
 

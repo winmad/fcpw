@@ -444,15 +444,23 @@ public struct Triangle : IPrimitive
         float3 p[4] = { pa, pb, pc, pa };
         for (uint k = 0; k < 3; k++)
         {
-            float2 res = minAngleToSegment(c.o, c.d, p[k], p[k + 1]);
-            if (res.x > c.cosHalfAngle)
+            bool isVisible = (dot(float4(p[k], 1.f), c.planeNear) > -1e-6f 
+                            || dot(float4(p[k + 1], 1.f), c.planeNear) > -1e-6f
+                            || dot(float4(p[k], 1.f), c.planeFar) > -1e-6f
+                            || dot(float4(p[k + 1], 1.f), c.planeFar) > -1e-6f);
+
+            if (isVisible)
             {
-                c.cosHalfAngle = res.x;
-                i.p = (1.f - res.y) * p[k] + res.y * p[k + 1];
-                i.uv = float2(res.y, k); // TODO: fix
-                i.d = res.x;
-                i.index = index;
-                flag = true;
+                float2 res = minAngleToSegment(c.o, c.d, p[k], p[k + 1]);
+                if (res.x > c.cosHalfAngle)
+                {
+                    c.cosHalfAngle = res.x;
+                    i.p = (1.f - res.y) * p[k] + res.y * p[k + 1];
+                    i.uv = float2(res.y, k); // TODO: fix
+                    i.d = res.x;
+                    i.index = index;
+                    flag = true;
+                }
             }
         }
         return flag;

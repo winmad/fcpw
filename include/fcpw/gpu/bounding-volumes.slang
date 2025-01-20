@@ -104,6 +104,21 @@ public struct BoundingBox
         tMax = tFarMin;
         return true;
     }
+
+    public bool behindPlane(float4 plane)
+    {
+        for (uint i = 0; i < 8; i++)
+        {
+            float3 p = (i & 1 ? pMax : pMin);
+            p.y = (i & 2 ? pMax.y : pMin.y);
+            p.z = (i & 4 ? pMax.z : pMin.z);
+            if (dot(float4(p, 1.0), plane) > -1e-6f)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
 public BoundingBox mergeBoundingBoxes(BoundingBox boxA, BoundingBox boxB)

@@ -79,6 +79,8 @@ public:
     void findMinCones(Eigen::MatrixXf& queryPoints,
                       Eigen::MatrixXf& queryDirs,
                       Eigen::VectorXf& maxCosHalfAngle,
+                      Eigen::MatrixXf& planeNear,
+                      Eigen::MatrixXf& planeFar,
                       std::vector<GPUInteraction>& interactions,
                       bool recordNormals=false);
     void findMinCones(std::vector<GPUMinCone>& minCones,

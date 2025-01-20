@@ -193,6 +193,17 @@ public struct Bvh<N : IBvhNode, P : IPrimitive, S : ISilhouette> : IAggregate
                             didIntersect = true;
                             r.tMax = min(r.tMax, c.d);
                             i = c;
+
+                            // Hack
+                            // MinCone cone;
+                            // cone.o = r.o;
+                            // cone.d = r.d;
+                            // cone.cosHalfAngle = 0.0;
+                            // cone.planeNear = float4(r.d, -dot(r.d, r.o));
+                            // cone.planeFar = float4(-r.d, -dot(-r.d, r.o + r.d * 1e6f));
+                            // Interaction tmpI;
+                            // bool flag = primitives[primitiveIndex].findAngularClosestPoint(cone, tmpI);
+                            // i.d = tmpI.d;
                         }
                     }
                 }
@@ -729,12 +740,12 @@ public struct Bvh<N : IBvhNode, P : IPrimitive, S : ISilhouette> : IAggregate
                     uint leftNodeIndex = currentNodeIndex + 1;
                     BoundingBox leftBox = nodes[leftNodeIndex].getBoundingBox();
                     maxCosToChildNodes[0] = minAngleToAABB(c.o, c.d, leftBox);
-                    bool overlapsLeft = (maxCosToChildNodes[0] > c.cosHalfAngle);
+                    bool overlapsLeft = (maxCosToChildNodes[0] > c.cosHalfAngle && !leftBox.behindPlane(c.planeNear) && !leftBox.behindPlane(c.planeFar));
                     
                     uint rightNodeIndex = currentNodeIndex + node.getRightChildOffset();
                     BoundingBox rightBox = nodes[rightNodeIndex].getBoundingBox();
                     maxCosToChildNodes[1] = minAngleToAABB(c.o, c.d, rightBox);
-                    bool overlapsRight = (maxCosToChildNodes[1] > c.cosHalfAngle);
+                    bool overlapsRight = (maxCosToChildNodes[1] > c.cosHalfAngle && !rightBox.behindPlane(c.planeNear) && !rightBox.behindPlane(c.planeFar));
 
                     // which nodes do we overlap?
                     if (overlapsLeft && overlapsRight)
@@ -780,6 +791,33 @@ public struct Bvh<N : IBvhNode, P : IPrimitive, S : ISilhouette> : IAggregate
                         traversalStack[stackPtr].distance = maxCosToChildNodes[1];
                     }
                 }
+            }
+        }
+
+        if (!notFound && recordNormal)
+        {
+            i.n = primitives[i.index].getNormal();
+        }
+
+        return !notFound;
+    }
+
+    public bool findMinConeBruteForce(inout MinCone c, inout Interaction i,
+                                      bool recordNormal = false)
+    {
+        bool notFound = true;
+
+        for (uint p = 0; p < primitives.getCount(); p++)
+        {
+            Interaction tmpI;
+            bool found = primitives[p].findAngularClosestPoint(c, tmpI);
+
+            // keep the closest point only
+            if (found)
+            {
+                notFound = false;
+                c.cosHalfAngle = max(c.cosHalfAngle, tmpI.d);
+                i = tmpI;
             }
         }
 
