@@ -442,7 +442,8 @@ NB_MODULE(py, m) {
         .def_rw("n", &fcpw::GPUInteraction::n)
         .def_rw("uv", &fcpw::GPUInteraction::uv)
         .def_rw("d", &fcpw::GPUInteraction::d)
-        .def_rw("index", &fcpw::GPUInteraction::index);
+        .def_rw("index", &fcpw::GPUInteraction::index)
+        .def_rw("maxCos", &fcpw::GPUInteraction::maxCos);
 
     using GPUFloat3DList = std::vector<fcpw::float3>;
     nb::bind_vector<GPUFloat3DList>(m, "gpu_float_3D_list");

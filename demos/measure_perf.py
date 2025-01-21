@@ -68,75 +68,16 @@ def load_fcpw_scene(positions, indices, build_vectorized_cpu_bvh):
 
 def perform_gpu_min_cone_queries(gpu_scene, query_data, brute_force=False):
     # perform cpqs on GPU
-    
     interactions = fcpw.gpu_interaction_list()
     gpu_scene.find_min_cones(query_data["origin"], query_data["dirs"], query_data["max_cos_half_angle"], query_data["plane_near"], query_data["plane_far"], interactions, brute_force)
 
-    # extract closest points
-    closest_points = np.array([np.array([i.p.x, i.p.y, i.p.z], dtype=np.float32, order='C') for i in interactions])
-    # print(closest_points)
 
-    return closest_points
+def perform_gpu_ray_intersect(gpu_scene, query_data):
+    interactions = fcpw.gpu_interaction_list()
+    num_queries = query_data["origin"].shape[0]
+    ray_distance_bounds = np.ones(num_queries, dtype=np.float32) * 1e8
+    gpu_scene.intersect(query_data["origin"], query_data["dirs"], ray_distance_bounds, interactions, check_for_occlusion=True)
 
-def gui_callback(scene, query_data, use_gpu, compare=False):
-    # animate query points
-    # for q in query_points:
-        # q[0] += 0.001 * np.sin(10.0 * q[1])
-        # q[1] += 0.001 * np.cos(10.0 * q[0])
-
-    query_points = query_data["origin"]
-    p_hit = query_data["p_hit"]
-
-    # perform closest point queries
-    closest_points = None
-    if use_gpu:
-        closest_points = perform_gpu_min_cone_queries(scene, query_data, False)
-
-        if compare:
-            closest_points_ref = perform_gpu_min_cone_queries(scene, query_data, True)
-    else:
-        pass
-        # closest_points = perform_closest_point_queries(scene, query_points)
-
-    if compare:
-        diff = closest_points - closest_points_ref
-        diff = np.linalg.norm(diff, axis=1)
-        acc = np.sum(diff < 1e-6) / len(diff)
-        print(acc)
-
-    # plot results
-    # query_dir_end_points = query_points + query_dirs * 1.0
-    ps.register_point_cloud("cone origin", query_points)
-    # ps.register_point_cloud("cone hit", p_hit)
-    ps.register_point_cloud("closest points", closest_points)
-
-    edge_positions = np.concatenate([query_points, p_hit, closest_points], axis=0)
-    edge_indices_1 = np.array([[i, i + len(query_points)] for i in range(len(query_points))])
-    edge_indices_2 = np.array([[i, i + 2 * len(query_points)] for i in range(len(query_points))])
-    network1 = ps.register_curve_network("dirs", edge_positions, edge_indices_1)
-    network2 = ps.register_curve_network("closest silhouettes", edge_positions, edge_indices_2)
-    network1.set_radius(0.003, relative=False)
-    network2.set_radius(0.005, relative=False)
-
-    if compare:
-        ps.register_point_cloud("closest points ref", closest_points_ref)
-        ref_edge_positions = np.concatenate([query_points, closest_points_ref], axis=0)
-        edge_indices_3 = np.array([[i, i + len(query_points)] for i in range(len(query_points))])
-        network3 = ps.register_curve_network("closest silhouettes ref", ref_edge_positions, edge_indices_3)
-        network3.set_radius(0.005, relative=False)
-
-def visualize(scene, positions, indices, query_data, use_gpu, compare=False):
-    # initialize polyscope
-    ps.init()
-    ps.set_ground_plane_mode("none")
-
-    # register mesh and callback
-    ps.register_surface_mesh("mesh", positions, indices)
-    gui_callback_no_args = lambda: gui_callback(scene, query_data, use_gpu, compare)
-    ps.set_user_callback(gui_callback_no_args)
-
-    # give control to polyscope gui
-    ps.show()
 
 def gen_cone_queries(gpu_scene, positions, num_queries):
     # np.random.seed(120)
@@ -184,7 +125,7 @@ def gen_cone_queries(gpu_scene, positions, num_queries):
             p_hit.append(query_points[i] + query_dirs[i] * 1.0)
             plane_far.append([-query_dirs[i][0], -query_dirs[i][1], -query_dirs[i][2], -np.dot(-query_dirs[i], query_points[i] + query_dirs[i] * dist_far)])
             max_cos_half_angle.append(0.0)
-            # print("miss")
+            # print("miss")            
 
         # test = np.dot(plane_far[i][:3], p_hit[i]) + plane_far[i][3]
         # print(test)
@@ -212,45 +153,32 @@ def gen_cone_queries(gpu_scene, positions, num_queries):
 def main():
     # parse arguments
     parser = argparse.ArgumentParser(description="fcpw demo")
-    parser.add_argument("--use_gpu", action="store_true", help="use GPU")
+    # parser.add_argument("--use_gpu", action="store_true", help="use GPU")
     args = parser.parse_args()
 
     # load obj file
-    # positions, indices = load_obj("dragon.obj")
-    positions, indices = load_obj("bunny_simple_normalized.obj")
+    positions, indices = load_obj("dragon.obj")
+    # positions, indices = load_obj("bunny_simple_normalized.obj")
 
-    box_min = np.min(positions, axis=0)
-    box_max = np.max(positions, axis=0)
-    #query_points = np.random.uniform(box_min, box_max, (num_query_points, 3)).astype(np.float32)
-    
-    # query_points = np.reshape(box_max, (1, 3)) + 0.01
-    # query_dirs = np.array([[-1.0, -0.01, -0.01]], dtype=np.float32)
+    # load fcpw scene
+    scene = load_fcpw_scene(positions, indices, False) # NOTE: must build non-vectorized CPU BVH
 
-    if args.use_gpu:
-        # load fcpw scene
-        scene = load_fcpw_scene(positions, indices, False) # NOTE: must build non-vectorized CPU BVH
+    # transfer scene to GPU
+    fcpw_directory_path = str(Path.cwd().parent)
+    print_stats = True
+    gpu_scene = fcpw.gpu_scene_3D(fcpw_directory_path, print_stats)
+    gpu_scene.transfer_to_gpu(scene)
 
-        # transfer scene to GPU
-        fcpw_directory_path = str(Path.cwd().parent)
-        print_stats = True
-        gpu_scene = fcpw.gpu_scene_3D(fcpw_directory_path, print_stats)
-        gpu_scene.transfer_to_gpu(scene)
+    # generate random query points for closest point queries
+    num_queries = 1000000
+    query_data = gen_cone_queries(gpu_scene, positions, num_queries)
 
-        # generate random query points for closest point queries
-        num_queries = 10
-        query_data = gen_cone_queries(gpu_scene, positions, num_queries)
+    print("======== Ray Intersect ========")
+    perform_gpu_ray_intersect(gpu_scene, query_data)
 
-        # visualize scene
-        compare = True
-        visualize(gpu_scene, positions, indices, query_data, True, compare)
+    print("======== Cone ========")
+    perform_gpu_min_cone_queries(gpu_scene, query_data, False)
 
-    else:
-        pass
-        # load fcpw scene
-        # scene = load_fcpw_scene(positions, indices, True)
-
-        # visualize scene
-        # visualize(scene, positions, indices, query_points, False)
 
 if __name__ == "__main__":
     main()

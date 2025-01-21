@@ -8,6 +8,7 @@ public struct Interaction
     public float2 uv;  // uv coordinates of interaction point
     public float d;    // distance to interaction point
     public uint index; // index of primitive/silhouette associated with interaction point
+    public float maxCos;
 
     // constructor
     public __init()
@@ -17,5 +18,6 @@ public struct Interaction
         uv = float2(0.0, 0.0);
         d = FLT_MAX;
         index = UINT_MAX;
+        maxCos = 0.0;
     }
 };

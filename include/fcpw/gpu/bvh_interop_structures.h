@@ -816,6 +816,7 @@ struct GPUInteraction {
         uv = float2{0.0f, 0.0f};
         d = maxFloat;
         index = FCPW_GPU_UINT_MAX;
+        maxCos = 0.0f;
     }
 
     float3 p;       // interaction point associated with query
@@ -823,6 +824,7 @@ struct GPUInteraction {
     float2 uv;      // uv coordinates of interaction point
     float d;        // distance to interaction point
     uint32_t index; // index of primitive/silhouette associated with interaction point
+    float maxCos;
 };
 
 class GPUInteractionsBuffer {

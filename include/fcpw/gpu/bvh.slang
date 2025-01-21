@@ -195,15 +195,15 @@ public struct Bvh<N : IBvhNode, P : IPrimitive, S : ISilhouette> : IAggregate
                             i = c;
 
                             // Hack
-                            // MinCone cone;
-                            // cone.o = r.o;
-                            // cone.d = r.d;
-                            // cone.cosHalfAngle = 0.0;
-                            // cone.planeNear = float4(r.d, -dot(r.d, r.o));
-                            // cone.planeFar = float4(-r.d, -dot(-r.d, r.o + r.d * 1e6f));
-                            // Interaction tmpI;
-                            // bool flag = primitives[primitiveIndex].findAngularClosestPoint(cone, tmpI);
-                            // i.d = tmpI.d;
+                            MinCone cone;
+                            cone.o = r.o;
+                            cone.d = r.d;
+                            cone.cosHalfAngle = 0.0;
+                            cone.planeNear = float4(r.d, -dot(r.d, r.o));
+                            cone.planeFar = float4(-r.d, -dot(-r.d, r.o + r.d * 1e6f));
+                            Interaction tmpI;
+                            bool flag = primitives[primitiveIndex].findAngularClosestPoint(cone, tmpI);
+                            i.maxCos = tmpI.d - 1e-3f;
                         }
                     }
                 }
@@ -740,12 +740,24 @@ public struct Bvh<N : IBvhNode, P : IPrimitive, S : ISilhouette> : IAggregate
                     uint leftNodeIndex = currentNodeIndex + 1;
                     BoundingBox leftBox = nodes[leftNodeIndex].getBoundingBox();
                     maxCosToChildNodes[0] = minAngleToAABB(c.o, c.d, leftBox);
+
+#define BACK_PLANE_CULLING 1
+
+#if BACK_PLANE_CULLING
                     bool overlapsLeft = (maxCosToChildNodes[0] > c.cosHalfAngle && !leftBox.behindPlane(c.planeNear) && !leftBox.behindPlane(c.planeFar));
+#else
+                    bool overlapsLeft = (maxCosToChildNodes[0] > c.cosHalfAngle);
+#endif
                     
                     uint rightNodeIndex = currentNodeIndex + node.getRightChildOffset();
                     BoundingBox rightBox = nodes[rightNodeIndex].getBoundingBox();
                     maxCosToChildNodes[1] = minAngleToAABB(c.o, c.d, rightBox);
+
+#if BACK_PLANE_CULLING
                     bool overlapsRight = (maxCosToChildNodes[1] > c.cosHalfAngle && !rightBox.behindPlane(c.planeNear) && !rightBox.behindPlane(c.planeFar));
+#else
+                    bool overlapsRight = (maxCosToChildNodes[1] > c.cosHalfAngle);
+#endif
 
                     // which nodes do we overlap?
                     if (overlapsLeft && overlapsRight)
